@@ -23,6 +23,6 @@ jobs:
     steps:
       - uses: googleapis/release-please-action@v4
         with:
-          token: ${{ secrets.release_please_token }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: ${{ inputs.config_file }}
           manifest-file: ${{ inputs.manifest_file }}
