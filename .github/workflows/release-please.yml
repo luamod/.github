@@ -1,0 +1,28 @@
+name: Reusable Release Please
+
+on:
+  workflow_call:
+    inputs:
+      config_file:
+        required: true
+        type: string
+      manifest_file:
+        required: true
+        type: string
+    secrets:
+      release_please_token:
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.release_please_token }}
+          config-file: ${{ inputs.config_file }}
+          manifest-file: ${{ inputs.manifest_file }}
