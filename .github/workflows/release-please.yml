@@ -1,17 +1,17 @@
-name: Reusable Release Please
+name: Release Please Reusable
+# Release automation workflow powered by release-please.
 
 on:
   workflow_call:
     inputs:
       config_file:
-        required: true
+        required: false
         type: string
+        default: .github/release-please-config.json
       manifest_file:
-        required: true
+        required: false
         type: string
-    secrets:
-      release_please_token:
-        required: true
+        default: .github/.release-please-manifest.json
 
 permissions:
   contents: write
@@ -21,8 +21,8 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: google-github-actions/release-please-action@v4
         with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          token: ${{ github.token }}
           config-file: ${{ inputs.config_file }}
           manifest-file: ${{ inputs.manifest_file }}
