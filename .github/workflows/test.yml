@@ -1,0 +1,34 @@
+name: Test Reusable
+# Runs Lua test matrix with Busted.
+
+on:
+  workflow_call:
+    inputs:
+      lua_versions:
+        description: JSON array of Lua versions to test (e.g. ["5.1","5.4","luajit"])
+        required: false
+        type: string
+        default: '["5.4"]'
+
+permissions:
+  contents: read
+
+jobs:
+  busted:
+    runs-on: ubuntu-latest
+    strategy:
+      # Run Lua versions one-by-one and stop after the first failure.
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        lua-version: ${{ fromJson(inputs.lua_versions) }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: leafo/gh-actions-lua@v12
+        with:
+          luaVersion: ${{ matrix.lua-version }}
+      - uses: leafo/gh-actions-luarocks@v6
+      - name: Install Busted
+        run: luarocks install busted
+      - name: Run Busted
+        run: busted spec
