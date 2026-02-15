@@ -1,10 +1,11 @@
-name: PR
+name: PR Reusable
 # PR automation for title linting and labeling.
 
 on:
   workflow_call:
 
 jobs:
+  # Enforces semantic/conventional PR title format.
   pr-title-lint:
     runs-on: ubuntu-latest
     permissions:
@@ -15,6 +16,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
+  # Applies path-based labels and size label to the PR.
   labeler:
     runs-on: ubuntu-latest
     permissions:
