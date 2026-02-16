@@ -1,0 +1,95 @@
+name: LuaRocks
+# Publishes a tagged rockspec to LuaRocks.
+
+on:
+  workflow_call:
+    inputs:
+      lua_version:
+        description: Lua version to install
+        required: false
+        type: string
+        default: "5.4"
+      package_name:
+        description: LuaRocks package name used for generated rockspec filename
+        required: true
+        type: string
+      rockspec_template:
+        description: Path to rockspec template file
+        required: false
+        type: string
+        default: playground.rockspec.template
+      tag_name:
+        description: Tag to publish from (for example v1.2.3); defaults to workflow ref
+        required: false
+        type: string
+        default: ""
+    secrets:
+      LUAROCKS_API_KEY:
+        description: API key used by `luarocks upload`
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Lua
+        uses: leafo/gh-actions-lua@v12
+        with:
+          luaVersion: ${{ inputs.lua_version }}
+
+      - name: Set up LuaRocks
+        uses: leafo/gh-actions-luarocks@v4
+
+      - name: Ensure LuaRocks cache paths exist
+        run: |
+          mkdir -p ~/.cache/luarocks
+          mkdir -p ~/.luarocks
+
+      - name: Cache LuaRocks
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/luarocks
+            ~/.luarocks
+          key: luarocks-${{ runner.os }}-${{ inputs.lua_version }}-${{ inputs.package_name }}
+          restore-keys: |
+            luarocks-${{ runner.os }}-
+
+      # Resolve version source in order: explicit input tag, then event/ref tag.
+      # This avoids accidentally publishing an unrelated "latest" tag.
+      - name: Build versioned rockspec from tag
+        run: |
+          TAG="${{ inputs.tag_name }}"
+          if [ -z "$TAG" ]; then
+            if echo "${GITHUB_REF_NAME}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+              TAG="${GITHUB_REF_NAME}"
+            fi
+          fi
+          if [ -z "$TAG" ]; then
+            echo "No semantic version tag found. Provide tag_name like v1.2.3 or run from a tag/release event."
+            exit 1
+          fi
+          if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Invalid or missing tag '$TAG'. Provide a tag like v1.2.3."
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          sed "s/__VERSION__/${VERSION}/g" "${{ inputs.rockspec_template }}" > "${{ inputs.package_name }}-${VERSION}-1.rockspec"
+          echo "ROCKSPEC=${{ inputs.package_name }}-${VERSION}-1.rockspec" >> "$GITHUB_ENV"
+
+      - name: Show generated rockspec
+        run: |
+          echo "Generated: $ROCKSPEC"
+          echo "-----"
+          cat "$ROCKSPEC"
+
+      - name: Upload rockspec to LuaRocks
+        env:
+          LUAROCKS_API_KEY: ${{ secrets.LUAROCKS_API_KEY }}
+        run: |
+          luarocks upload --api-key="$LUAROCKS_API_KEY" "$ROCKSPEC"
