@@ -1,51 +1,218 @@
-name: CI Reusable
-# CI checks for linting and formatting.
+name: CI
+# Checks linting, formatting, and tests.
 
 on:
   workflow_call:
-
-permissions:
-  contents: read
+    inputs:
+      manual_run:
+        description: Run all checks/jobs regardless of file changes
+        required: false
+        type: boolean
+        default: false
+      luacheck_args:
+        description: Full args passed to luacheck
+        required: false
+        type: string
+        default: src
+      filters:
+        description: Full paths-filter config for change-based job toggles
+        required: false
+        type: string
+        default: |-
+          run_luacheck:
+            - "**/*.lua"
+          run_markdownlint:
+            - "**/*.md"
+          run_stylua:
+            - "**/*.lua"
+          run_prettier:
+            - "**/*.{json,yml,yaml,mts,js,ts}"
+          run_busted:
+            - "src/**"
+            - "lua/**"
+            - "spec/**"
+      markdown_globs:
+        description: Globs passed to markdownlint-cli2-action
+        required: false
+        type: string
+        default: |-
+          **/*.md
+          !CHANGELOG.md
+      stylua_args:
+        description: Args passed to StyLua
+        required: false
+        type: string
+        default: --check .
+      prettier_target:
+        description: Path/glob passed to Prettier
+        required: false
+        type: string
+        default: .
+      lua_versions:
+        description: JSON array of Lua versions for test matrix
+        required: false
+        type: string
+        default: '["5.1","5.2","5.3","5.4","luajit"]'
+      busted_path:
+        description: Test directory/path passed to Busted
+        required: false
+        type: string
+        default: spec
 
 jobs:
+  # Detect which CI jobs should run based on changed files.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      run_luacheck: ${{ inputs.manual_run && steps.manual.outputs.run_luacheck || steps.filter.outputs.run_luacheck }}
+      run_markdownlint: ${{ inputs.manual_run && steps.manual.outputs.run_markdownlint || steps.filter.outputs.run_markdownlint }}
+      run_stylua: ${{ inputs.manual_run && steps.manual.outputs.run_stylua || steps.filter.outputs.run_stylua }}
+      run_prettier: ${{ inputs.manual_run && steps.manual.outputs.run_prettier || steps.filter.outputs.run_prettier }}
+      run_busted: ${{ inputs.manual_run && steps.manual.outputs.run_busted || steps.filter.outputs.run_busted }}
+    steps:
+      - name: Detect changed files
+        # Skip file-diff detection on manual runs.
+        if: ${{ !inputs.manual_run }}
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: ${{ inputs.filters }}
+      - name: Enable all jobs for manual runs
+        # Enable all checks when triggered manually.
+        if: ${{ inputs.manual_run }}
+        id: manual
+        run: |
+          echo "run_luacheck=true" >> "$GITHUB_OUTPUT"
+          echo "run_markdownlint=true" >> "$GITHUB_OUTPUT"
+          echo "run_stylua=true" >> "$GITHUB_OUTPUT"
+          echo "run_prettier=true" >> "$GITHUB_OUTPUT"
+          echo "run_busted=true" >> "$GITHUB_OUTPUT"
+
   # Lua static analysis.
   luacheck:
+    # Run when Lua files changed.
+    if: ${{ needs.changes.outputs.run_luacheck == 'true' }}
+    # Wait for change detection.
+    needs:
+      - changes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: leafo/gh-actions-lua@v12
-      - uses: leafo/gh-actions-luarocks@v6
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+      - name: Setup Lua
+        uses: leafo/gh-actions-lua@v12
+      - name: Setup LuaRocks
+        uses: leafo/gh-actions-luarocks@v6
+      - name: Cache LuaRocks
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/luarocks
+            ~/.luarocks
+          key: ${{ runner.os }}-luarocks-luacheck-${{ hashFiles('.github/workflows/ci-reusable.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-luarocks-luacheck-
       - name: Install LuaCheck
         run: luarocks install luacheck
       - name: Run LuaCheck
-        run: luacheck .
+        run: luacheck ${{ inputs.luacheck_args }}
 
   # Markdown style checks.
   markdownlint:
+    # Run when markdown files changed.
+    if: ${{ needs.changes.outputs.run_markdownlint == 'true' }}
+    # Wait for change detection.
+    needs:
+      - changes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: DavidAnson/markdownlint-cli2-action@v22
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+      - name: Run Markdownlint
+        uses: DavidAnson/markdownlint-cli2-action@v22
+        with:
+          globs: |
+            ${{ inputs.markdown_globs }}
+            !**/.*/**
 
   # Lua formatting checks.
   stylua:
+    # Run when Lua formatting targets changed.
+    if: ${{ needs.changes.outputs.run_stylua == 'true' }}
+    # Wait for change detection.
+    needs:
+      - changes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: JohnnyMorganz/stylua-action@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+      - name: Run StyLua
+        uses: JohnnyMorganz/stylua-action@v4
         with:
           token: ${{ github.token }}
           version: latest
-          args: --check .
+          args: ${{ inputs.stylua_args }}
 
   # General formatting checks.
   prettier:
+    # Run when formatter-supported files changed.
+    if: ${{ needs.changes.outputs.run_prettier == 'true' }}
+    # Wait for change detection.
+    needs:
+      - changes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
         with:
           node-version: 24
       - name: Run Prettier
         run: |
-          npx --yes prettier . --check --ignore-unknown
+          npx --yes prettier "${{ inputs.prettier_target }}" "!**/.*/**" "!**/*.md" --check --ignore-unknown
+
+  # Lua tests (run after lint/format checks pass).
+  test:
+    # Run tests only when test-related files changed and lint jobs did not fail.
+    if: >-
+      ${{
+        always() &&
+        needs.changes.outputs.run_busted == 'true' &&
+        contains(fromJson('["success","skipped"]'), needs.luacheck.result) &&
+        contains(fromJson('["success","skipped"]'), needs.stylua.result)
+      }}
+    runs-on: ubuntu-latest
+    # Wait for test-change detection and Lua lint/format jobs.
+    needs:
+      - changes
+      - luacheck
+      - stylua
+    strategy:
+      # Run Lua versions one-by-one and stop after the first failure.
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        lua-version: ${{ fromJson(inputs.lua_versions) }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+      - name: Setup Lua
+        uses: leafo/gh-actions-lua@v12
+        with:
+          luaVersion: ${{ matrix.lua-version }}
+      - name: Setup LuaRocks
+        uses: leafo/gh-actions-luarocks@v6
+      - name: Cache LuaRocks
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/luarocks
+            ~/.luarocks
+          key: ${{ runner.os }}-luarocks-busted-${{ matrix.lua-version }}-${{ hashFiles('.github/workflows/ci-reusable.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-luarocks-busted-${{ matrix.lua-version }}-
+      - name: Install Busted
+        run: luarocks install busted
+      - name: Run Busted
+        run: busted "${{ inputs.busted_path }}"
