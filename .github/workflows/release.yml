@@ -1,5 +1,5 @@
-name: Release Please Reusable
-# Release automation workflow powered by release-please.
+name: Release
+# Release automation powered by release-please.
 
 on:
   workflow_call:
@@ -13,16 +13,14 @@ on:
         type: string
         default: .github/.release-please-manifest.json
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - uses: google-github-actions/release-please-action@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run Release Please
+        uses: googleapis/release-please-action@v4
         with:
-          token: ${{ github.token }}
           config-file: ${{ inputs.config_file }}
           manifest-file: ${{ inputs.manifest_file }}
