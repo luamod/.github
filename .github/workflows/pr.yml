@@ -1,30 +1,25 @@
-name: PR Reusable
-# PR automation for title linting and labeling.
+name: PR
+# Checks title linting and labeling.
 
 on:
   workflow_call:
 
 jobs:
-  # Enforces semantic/conventional PR title format.
   pr-title-lint:
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
     steps:
       - name: Lint PR title
         uses: amannn/action-semantic-pull-request@v6
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-  # Applies path-based labels and size label to the PR.
   labeler:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
     steps:
-      - uses: actions/labeler@v6
-      - uses: pascalgn/size-label-action@v0.5.5
+      - name: Apply Labels
+        uses: actions/labeler@v6
+      - name: Apply Size Label
+        uses: pascalgn/size-label-action@v0.5.5
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
