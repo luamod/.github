@@ -1,0 +1,102 @@
+name: Docs
+# Builds and optionally deploys VitePress docs.
+
+on:
+  workflow_call:
+    inputs:
+      deploy:
+        description: Deploy built docs artifact to GitHub Pages
+        required: false
+        type: boolean
+        default: false
+      docs_workdir:
+        description: Working directory that contains docs package.json
+        required: false
+        type: string
+        default: docs
+      install_cmd:
+        description: Command used to install docs dependencies (`auto`, `npm ci`, `npm install`, etc.)
+        required: false
+        type: string
+        default: auto
+      build_cmd:
+        description: Command used to build docs (`auto`, `npm run docs:build`, `npm run build`, etc.)
+        required: false
+        type: string
+        default: auto
+
+jobs:
+  # Build the VitePress site and upload Pages artifact.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+      - name: Setup Node.js (with npm cache)
+        if: ${{ hashFiles(format('{0}/package-lock.json', inputs.docs_workdir)) != '' }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ${{ inputs.docs_workdir }}/package-lock.json
+      - name: Setup Node.js
+        if: ${{ hashFiles(format('{0}/package-lock.json', inputs.docs_workdir)) == '' }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Install dependencies
+        # `auto` chooses npm ci when a lockfile exists, otherwise npm install.
+        run: |
+          HAS_LOCKFILE=false
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            HAS_LOCKFILE=true
+          fi
+
+          if [ "${{ inputs.install_cmd }}" = "auto" ]; then
+            if [ "$HAS_LOCKFILE" = true ]; then
+              npm ci
+            else
+              npm install
+            fi
+          elif [ "${{ inputs.install_cmd }}" = "npm ci" ] && [ "$HAS_LOCKFILE" != true ]; then
+            echo "install_cmd is 'npm ci' but no lockfile exists; falling back to npm install"
+            npm install
+          else
+            ${{ inputs.install_cmd }}
+          fi
+        working-directory: ${{ inputs.docs_workdir }}
+      - name: Build VitePress docs
+        # `auto` prefers docs:build and falls back to build when docs:build is absent.
+        run: |
+          if [ "${{ inputs.build_cmd }}" != "auto" ]; then
+            ${{ inputs.build_cmd }}
+          elif node -e "const s=require('./package.json').scripts||{}; process.exit(s['docs:build']?0:1)"; then
+            npm run docs:build
+          elif node -e "const s=require('./package.json').scripts||{}; process.exit(s['build']?0:1)"; then
+            npm run build
+          else
+            echo "No docs build script found (expected 'docs:build' or 'build')."
+            exit 1
+          fi
+        working-directory: ${{ inputs.docs_workdir }}
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ${{ inputs.docs_workdir }}/.vitepress/dist
+
+  # Deploy the uploaded artifact to GitHub Pages.
+  deploy:
+    # Deploy only when explicitly enabled by caller.
+    if: ${{ inputs.deploy }}
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
