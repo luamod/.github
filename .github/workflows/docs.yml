@@ -24,6 +24,7 @@ on:
         required: false
         type: string
         default: auto
+
 jobs:
   # Build the VitePress site and upload Pages artifact.
   build:
@@ -79,16 +80,14 @@ jobs:
         working-directory: ${{ inputs.docs_workdir }}
 
       - name: Build VitePress docs
-        # `auto` prefers docs:build and falls back to build when docs:build is absent.
+        # `auto` requires docs:build.
         run: |
           if [ "${{ inputs.build_cmd }}" != "auto" ]; then
             ${{ inputs.build_cmd }}
           elif node -e "const s=require('./package.json').scripts||{}; process.exit(s['docs:build']?0:1)"; then
             npm run docs:build
-          elif node -e "const s=require('./package.json').scripts||{}; process.exit(s['build']?0:1)"; then
-            npm run build
           else
-            echo "No docs build script found (expected 'docs:build' or 'build')."
+            echo "No docs build script found (expected 'docs:build')."
             exit 1
           fi
         working-directory: ${{ inputs.docs_workdir }}
