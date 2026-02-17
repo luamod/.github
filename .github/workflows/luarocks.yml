@@ -88,6 +88,9 @@ jobs:
           echo "-----"
           cat "$ROCKSPEC"
 
+      - name: Install JSON library for LuaRocks upload
+        run: luarocks install dkjson
+
       - name: Upload rockspec to LuaRocks
         env:
           LUAROCKS_API_KEY: ${{ secrets.LUAROCKS_API_KEY }}
