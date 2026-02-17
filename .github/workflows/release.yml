@@ -12,14 +12,25 @@ on:
         required: false
         type: string
         default: .github/.release-please-manifest.json
+    outputs:
+      tag_name:
+        description: Release tag created by release-please
+        value: ${{ jobs.release-please.outputs.tag_name }}
+      release_created:
+        description: Whether release-please created a release
+        value: ${{ jobs.release-please.outputs.release_created }}
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+      release_created: ${{ steps.rp.outputs.release_created }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Run Release Please
+      - id: rp
+        name: Run Release Please
         uses: googleapis/release-please-action@v4
         with:
           config-file: ${{ inputs.config_file }}
