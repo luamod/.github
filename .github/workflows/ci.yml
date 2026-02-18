@@ -214,5 +214,7 @@ jobs:
             ${{ runner.os }}-luarocks-busted-${{ matrix.lua-version }}-
       - name: Install Busted
         run: luarocks install busted
+      - name: Install Inspect
+        run: luarocks install inspect
       - name: Run Busted
         run: busted "${{ inputs.busted_path }}"
