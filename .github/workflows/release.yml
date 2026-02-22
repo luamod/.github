@@ -28,7 +28,7 @@ jobs:
       release_created: ${{ steps.rp.outputs.release_created }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - id: rp
         name: Run Release Please
         uses: googleapis/release-please-action@v4
