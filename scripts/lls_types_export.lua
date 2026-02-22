@@ -1242,7 +1242,7 @@ local function export_types_dir(types_dir, out_dir, out_ext, export_path, exclud
   local written = {}
   for _, name in ipairs(files) do
     local source_path = types_dir .. "/" .. name
-    local out_name = name:gsub("%.lua$", "." .. ext)
+    local out_name = name:gsub("%.lua$", "." .. ext):lower()
     local out_path = out_dir .. "/" .. out_name
     local content = read_file(source_path)
     local items = parse(content)
