@@ -49,11 +49,17 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
+      - name: Resolve Workflow Tools Ref
+        run: |
+          TOOLS_REF="${{ github.workflow_ref }}"
+          TOOLS_REF="${TOOLS_REF##*@}"
+          echo "TOOLS_REF=$TOOLS_REF" >> "$GITHUB_ENV"
+
       - name: Checkout Workflow Tools
         uses: actions/checkout@v6
         with:
           repository: luamod/.github
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ env.TOOLS_REF }}
           path: .workflow-tools
 
       - name: Setup Lua
