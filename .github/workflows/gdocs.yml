@@ -127,6 +127,10 @@ jobs:
         if: ${{ inputs.output_ext == 'md' }}
         run: npx --yes prettier@3 --write "${{ inputs.output_dir }}/**/*.md"
 
+      - name: Lint Markdown Output
+        if: ${{ inputs.output_ext == 'md' }}
+        run: npx --yes markdownlint-cli2 "${{ inputs.output_dir }}/**/*.md"
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v8
         with:
