@@ -1265,15 +1265,15 @@ setmetatable(M, {
 })
 
 local function cli_help()
-  return [[usage: lua annot.lua --types-dir <dir> --output-dir <dir> --output-ext <ext> [--export-script <file>] [--exclude <files>]
+  return [[usage: lua lls_types_export.lua --types-dir <dir> --output-dir <dir> --output-ext <ext> [--export-script <file>] [--exclude <files>]
 
 Modes:
   1) Parse only (no render export):
-     lua annot.lua --types-dir types --output-dir docs/src/modules --output-ext md
+     lua lls_types_export.lua --types-dir types --output-dir docs/src/modules --output-ext md
      Reads `.lua` files from `types` and returns parsed table data.
 
   2) Parse + custom render export:
-     lua annot.lua --types-dir types --output-dir docs/src/modules --output-ext md --export-script ./export.lua
+     lua lls_types_export.lua --types-dir types --output-dir docs/src/modules --output-ext md --export-script ./export.lua
      Reads `.lua` files from `types` and writes rendered files to `docs/src/modules`
      using extension `.md` (use `json`, `txt`, or any extension as needed).
 
@@ -1324,7 +1324,7 @@ local function parse_cli_args(argv)
   return out
 end
 
-if arg and arg[0] and arg[0]:match("annot%.lua$") then
+if arg and arg[0] and arg[0]:match("lls_types_export%.lua$") then
   local opts, err = parse_cli_args(arg)
   if err == "help" then
     io.stdout:write(cli_help())
