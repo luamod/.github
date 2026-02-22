@@ -1,0 +1,65 @@
+name: Annot
+# Runs scripts/annot.lua to parse/export Lua type files.
+
+on:
+  workflow_call:
+    inputs:
+      lua_version:
+        description: Lua version used to run annot.lua
+        required: false
+        type: string
+        default: "5.4"
+      types_dir:
+        description: Directory containing input .lua files
+        required: true
+        type: string
+      output_dir:
+        description: Directory where rendered files are written
+        required: true
+        type: string
+      output_ext:
+        description: Output file extension (without leading dot)
+        required: false
+        type: string
+        default: md
+      export_script:
+        description: Optional export script path passed to --export-script
+        required: false
+        type: string
+        default: ""
+      exclude:
+        description: Optional space-separated list passed to --exclude
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  annot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Setup Lua
+        uses: leafo/gh-actions-lua@v12
+        with:
+          luaVersion: ${{ inputs.lua_version }}
+
+      - name: Run annot.lua
+        run: |
+          cmd=(
+            lua "scripts/annot.lua"
+            --types-dir "${{ inputs.types_dir }}"
+            --output-dir "${{ inputs.output_dir }}"
+            --output-ext "${{ inputs.output_ext }}"
+          )
+
+          if [ -n "${{ inputs.export_script }}" ]; then
+            cmd+=(--export-script "${{ inputs.export_script }}")
+          fi
+
+          if [ -n "${{ inputs.exclude }}" ]; then
+            cmd+=(--exclude "${{ inputs.exclude }}")
+          fi
+
+          "${cmd[@]}"
