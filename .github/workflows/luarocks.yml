@@ -43,7 +43,7 @@ jobs:
           luaVersion: ${{ inputs.lua_version }}
 
       - name: Set up LuaRocks
-        uses: leafo/gh-actions-luarocks@v4
+        uses: leafo/gh-actions-luarocks@v6
 
       - name: Ensure LuaRocks cache paths exist
         run: |
