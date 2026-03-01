@@ -48,6 +48,17 @@ local function split_name_rest(s)
   return s:match("^(%S+)%s*(.*)$")
 end
 
+local function normalize_desc(v)
+  if type(v) ~= "string" then
+    return nil
+  end
+  v = trim(v)
+  if v == "" then
+    return nil
+  end
+  return v
+end
+
 local function split_commas(s)
   local out = {}
   for part in s:gmatch("[^,]+") do
@@ -130,7 +141,7 @@ local function parse_name_view_desc(payload)
   local view, desc = split_name_rest(rest)
   return set_view({
     name = name,
-    desc = desc ~= "" and desc or nil,
+    desc = normalize_desc(desc),
   }, view)
 end
 
@@ -144,7 +155,7 @@ local function parse_return(payload)
   local name, desc = split_name_rest(rest)
   return set_view({
     name = name ~= "" and name or nil,
-    desc = desc ~= "" and desc or nil,
+    desc = normalize_desc(desc),
   }, view)
 end
 
@@ -240,7 +251,7 @@ local function parse_overload(payload)
   return {
     params = params,
     returns = { { view = ret_str } },
-    desc = desc ~= "" and desc or nil,
+    desc = normalize_desc(desc),
   }
 end
 
@@ -311,8 +322,23 @@ local function parse_fun_signature(view)
 end
 
 local function parse_field(payload)
-  local out = parse_name_view_desc(payload)
-  if not out or not out.view then
+  local name, rest = split_name_rest(payload)
+  if not name then
+    return
+  end
+
+  local first_line, tail = rest:match("^(.-)\n(.+)$")
+  local view = trim(first_line or rest or "")
+  local out = {
+    name = name,
+    desc = normalize_desc(tail),
+  }
+
+  if view ~= "" then
+    out.view = view
+  end
+
+  if not out.view then
     return out
   end
 
@@ -365,7 +391,7 @@ local FLAG_TAGS = {
 
 local function parse_tags(tag_items)
   local tags = {}
-  for _, item in ipairs(tag_items) do
+  for i, item in ipairs(tag_items) do
     local tag = item.tag
     local payload = item.payload
     if tag == "alias" then
@@ -385,9 +411,19 @@ local function parse_tags(tag_items)
         tags.meta_desc = join_desc(item.desc_extra)
       end
     else
-      payload = with_tag_extra(payload, item.desc_extra)
       local parsed = PARSED_TAGS[tag]
       if parsed then
+        if tag == "field" then
+          -- Field descriptions in this codebase are written before the next
+          -- field tag, so comments captured after the previous field/class tag
+          -- should be attached to the current field.
+          local prev = tag_items[i - 1]
+          local lead_desc = prev and prev.desc_extra
+          local can_shift = prev and (prev.tag == "field" or prev.tag == "class")
+          payload = with_tag_extra(payload, can_shift and lead_desc or nil)
+        else
+          payload = with_tag_extra(payload, item.desc_extra)
+        end
         append_parsed_tag(tags, parsed.key, payload, parsed.parser)
       elseif tag == "generic" then
         tags.generic = split_commas(payload)
@@ -413,10 +449,24 @@ local function parse_function_name(line)
 end
 
 local function parse_function_assignment(line)
+  local bracket_name = line:match("^%s*[%w_%.:]+%[%s*['\"]([^'\"]+)['\"]%s*]%s*=%s*function%s*%(")
+  if bracket_name then
+    return bracket_name
+  end
   return line:match("^%s*([%w_%.:]+)%s*=%s*function%s*%(")
 end
 
 local function parse_alias(line)
+  local tbl, key, rhs = line:match("^%s*([%w_]+)%[%s*['\"]([^'\"]+)['\"]%s*]%s*=%s*([%w_%.:]+)%s*$")
+  if tbl and key and rhs then
+    if rhs == "true" or rhs == "false" or rhs == "nil" then
+      return
+    elseif rhs:match("^%d+$") or rhs:match("^%d+%.%d+$") then
+      return
+    end
+    return key, rhs
+  end
+
   local lhs, rhs = line:match("^%s*([%w_%.:]+)%s*=%s*([%w_%.:]+)%s*$")
   if not lhs or not rhs then
     return
@@ -491,9 +541,16 @@ local function parse_field_assignment(line, table_name)
   if not table_name then
     return
   end
-  local pattern = "^%s*" .. table_name .. "%.([%w_]+)%s*=%s*(.-)%s*$"
-  local field, rhs = line:match(pattern)
+  local bracket_pattern = "^%s*" .. table_name .. "%[%s*['\"]([^'\"]+)['\"]%s*]%s*=%s*(.-)%s*$"
+  local field, rhs = line:match(bracket_pattern)
+  if not field then
+    local pattern = "^%s*" .. table_name .. "%.([%w_]+)%s*=%s*(.-)%s*$"
+    field, rhs = line:match(pattern)
+  end
   if not field or not rhs then
+    return
+  end
+  if rhs:match("%.") then
     return
   end
   return field, rhs
@@ -853,8 +910,6 @@ local function parse(source)
     if assign_name then
       if #desc_lines > 0 or #tag_items > 0 then
         flush_for_item({ kind = "function", name = assign_name }, line_no)
-      else
-        insert(out.items, { kind = "function", name = assign_name, start = line_no, finish = line_no, tags = {} })
       end
       return true
     end
