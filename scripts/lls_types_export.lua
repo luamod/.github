@@ -7,13 +7,15 @@ local concat = table.concat
 ---@field nodiscard? boolean
 ---@field params? {name?:string,view?:string}[]
 ---@field returns? {name?:string,view?:string}[]
+---@field includes? string[]
+---@field include_blocks? string[]
 
 ---@class annot.item
 ---@field alias_of? string
 ---@field desc string
 ---@field finish integer
 ---@field is_method? true
----@field kind "class"|"alias"|"enum"|"function"|"meta"|"section"|"type"
+---@field kind "class"|"alias"|"enum"|"function"|"meta"|"section"|"type"|"include"
 ---@field name string
 ---@field shortname string
 ---@field start integer
@@ -410,6 +412,18 @@ local function parse_tags(tag_items)
       if item.desc_extra and #item.desc_extra > 0 then
         tags.meta_desc = join_desc(item.desc_extra)
       end
+    elseif tag == "include" then
+      local include_path = trim(payload)
+      if include_path ~= "" then
+        tags.includes = tags.includes or {}
+        insert(tags.includes, include_path)
+      elseif item.desc_extra and #item.desc_extra > 0 then
+        local include_block = join_desc(item.desc_extra)
+        if include_block and include_block ~= "" then
+          tags.include_blocks = tags.include_blocks or {}
+          insert(tags.include_blocks, include_block)
+        end
+      end
     else
       local parsed = PARSED_TAGS[tag]
       if parsed then
@@ -441,7 +455,10 @@ local function parse_tags(tag_items)
 end
 
 local function parse_function_name(line)
-  local name = line:match("^%s*function%s+([%w_%.:]+)%s*%(")
+  local name = line:match("^%s*local%s+function%s+([%w_%.:]+)%s*%(")
+  if not name then
+    name = line:match("^%s*function%s+([%w_%.:]+)%s*%(")
+  end
   if not name then
     return
   end
@@ -1024,6 +1041,7 @@ local function parse(source)
         name = meta_name,
         shortname = shortname(meta_name),
         desc = meta_desc,
+        tags = tags,
         start = block_start_line or line_no,
         finish = line_no,
       })
@@ -1080,6 +1098,16 @@ local function parse(source)
           })
         end
       end
+      reset_block()
+    elseif (tags.includes and #tags.includes > 0) or (tags.include_blocks and #tags.include_blocks > 0) then
+      insert(out.items, {
+        kind = "include",
+        name = "include",
+        shortname = "include",
+        tags = tags,
+        start = block_start_line or line_no,
+        finish = line_no,
+      })
       reset_block()
     else
       reset_block()
