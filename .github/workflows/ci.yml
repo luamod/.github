@@ -74,7 +74,7 @@ jobs:
         # Skip file-diff detection on manual runs.
         if: ${{ !inputs.manual_run }}
         id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: ${{ inputs.filters }}
       - name: Enable all jobs for manual runs
