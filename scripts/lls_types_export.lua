@@ -2,6 +2,7 @@
 
 local insert = table.insert
 local concat = table.concat
+local split_top_level_commas
 
 ---@class annot.item.tag
 ---@field nodiscard? boolean
@@ -47,7 +48,47 @@ local function set_view(out, view)
 end
 
 local function split_name_rest(s)
-  return s:match("^(%S+)%s*(.*)$")
+  if type(s) ~= "string" then
+    return
+  end
+
+  s = s:gsub("^%s+", "")
+  if s == "" then
+    return
+  end
+
+  local depth = 0
+  local quote = nil
+  local escape = false
+
+  for i = 1, #s do
+    local ch = s:sub(i, i)
+    if quote then
+      if escape then
+        escape = false
+      elseif ch == "\\" then
+        escape = true
+      elseif ch == quote then
+        quote = nil
+      end
+    else
+      if ch == '"' or ch == "'" then
+        quote = ch
+      elseif ch == "(" or ch == "[" or ch == "{" or ch == "<" then
+        depth = depth + 1
+      elseif ch == ")" or ch == "]" or ch == "}" or ch == ">" then
+        if depth > 0 then
+          depth = depth - 1
+        end
+      elseif ch:match("%s") and depth == 0 then
+        local name = s:sub(1, i - 1)
+        local rest = s:sub(i + 1)
+        return name, rest:gsub("^%s+", "")
+      end
+    end
+  end
+
+  return s, ""
 end
 
 local function normalize_desc(v)
@@ -241,7 +282,7 @@ local function parse_overload(payload)
 
   local params = {}
   if params_str ~= "" then
-    for part in params_str:gmatch("[^,]+") do
+    for _, part in ipairs(split_top_level_commas(params_str)) do
       local item = trim(part)
       local name, view = item:match("^(%S+)%s*:%s*(.+)$")
       if name then
@@ -257,7 +298,7 @@ local function parse_overload(payload)
   }
 end
 
-local function split_top_level_commas(s)
+split_top_level_commas = function(s)
   local parts = {}
   local start_idx = 1
   local depth = 0
@@ -300,7 +341,7 @@ local function parse_fun_signature(view)
 
   local params = {}
   if params_str ~= "" then
-    for part in params_str:gmatch("[^,]+") do
+    for _, part in ipairs(split_top_level_commas(params_str)) do
       local item = trim(part)
       local name, pview = item:match("^(%S+)%s*:%s*(.+)$")
       if name then
