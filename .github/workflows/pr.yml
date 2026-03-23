@@ -19,7 +19,7 @@ jobs:
       - name: Apply Labels
         uses: actions/labeler@v6
       - name: Apply Size Label
-        uses: pascalgn/size-label-action@v0.5.5
+        uses: pascalgn/size-label-action@v0.5.7
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
