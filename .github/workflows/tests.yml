@@ -39,7 +39,7 @@ jobs:
       - name: Install LuaRocks Dependencies
         shell: bash
         run: |
-          # Accept a newline-delimited dependency list from the caller workflow.
+          set -euo pipefail
           while IFS= read -r dep; do
             [ -n "$dep" ] && luarocks install "$dep"
           done <<'EOF'
