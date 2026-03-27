@@ -1,23 +1,22 @@
 name: Tests
-# Shared Busted test workflow for local callers.
+# Shared Busted workflow.
 
 on:
   workflow_call:
-    # Callers provide the platform, Lua matrix, and rock deps.
     inputs:
-      runner:
-        required: true
-        type: string
       lua_versions:
-        required: true
+        required: false
+        default: '["5.4"]'
         type: string
       luarocks_deps:
-        required: true
+        required: false
+        default: |
+          busted
         type: string
 
 jobs:
   test:
-    runs-on: ${{ inputs.runner }}
+    runs-on: ubuntu-latest
     strategy:
       # Keep failures easy to read by running one Lua version at a time.
       fail-fast: true
