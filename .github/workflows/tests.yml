@@ -1,0 +1,63 @@
+name: Tests
+# Shared Busted test workflow for local callers.
+
+on:
+  workflow_call:
+    # Callers provide the platform, Lua matrix, cache locations, and rock deps.
+    inputs:
+      runner:
+        required: true
+        type: string
+      lua_versions:
+        required: true
+        type: string
+      luarocks_cache_path:
+        required: true
+        type: string
+      luarocks_deps:
+        required: true
+        type: string
+
+jobs:
+  test:
+    runs-on: ${{ inputs.runner }}
+    strategy:
+      # Keep failures easy to read by running one Lua version at a time.
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        lua-version: ${{ fromJson(inputs.lua_versions) }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Setup Lua
+        uses: leafo/gh-actions-lua@v12
+        with:
+          luaVersion: ${{ matrix.lua-version }}
+
+      - name: Setup LuaRocks
+        uses: leafo/gh-actions-luarocks@v6
+
+      - name: Cache LuaRocks
+        uses: actions/cache@v5
+        with:
+          path: ${{ inputs.luarocks_cache_path }}
+          key: ${{ runner.os }}-luarocks-busted-${{ matrix.lua-version }}-${{ hashFiles('.github/workflows/tests.yml', '.github/workflows/test-reusable.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-luarocks-busted-${{ matrix.lua-version }}-
+
+      - name: Install LuaRocks Dependencies
+        shell: pwsh
+        run: |
+          # Accept a newline-delimited dependency list from the caller workflow.
+          $deps = @'
+          ${{ inputs.luarocks_deps }}
+          '@ -split "`r?`n" | Where-Object { $_.Trim() -ne "" }
+
+          foreach ($dep in $deps) {
+            luarocks install $dep.Trim()
+          }
+
+      - name: Run Busted
+        run: busted
