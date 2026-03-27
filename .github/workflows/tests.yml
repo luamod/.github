@@ -41,7 +41,8 @@ jobs:
         run: |
           set -euo pipefail
           while IFS= read -r dep; do
-            [ -n "$dep" ] && luarocks install "$dep"
+            [ -n "$dep" ] || continue
+            luarocks install "$dep"
           done <<'EOF'
           ${{ inputs.luarocks_deps }}
           EOF
