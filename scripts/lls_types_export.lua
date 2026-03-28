@@ -145,37 +145,6 @@ local function join_desc(lines)
   return concat(out, "\n")
 end
 
-local function parse_section_block(lines)
-  if not lines or #lines < 3 then
-    return
-  end
-  local top = trim(lines[1] or "")
-  local mid = trim(lines[2] or "")
-  local bot = trim(lines[3] or "")
-  if not top:match("^%-+$") or #top < 6 then
-    return
-  end
-  if not bot:match("^%-+$") or #bot < 6 then
-    return
-  end
-  local title = mid:match("^%-+%s*(.-)%s*%-+$")
-  if not title or title == "" then
-    return
-  end
-  local desc = nil
-  if #lines > 3 then
-    local rest = {}
-    for i = 4, #lines do
-      insert(rest, lines[i])
-    end
-    desc = join_desc(rest)
-  end
-  return {
-    name = title,
-    desc = desc,
-  }
-end
-
 local function parse_name_view_desc(payload)
   local name, rest = split_name_rest(payload)
   if not name then
@@ -845,20 +814,6 @@ local function parse(source)
 
   local function handle_comment_line(line, line_no)
     if line:match("^%s*%-%-%-@") then
-      if #desc_lines > 0 and #tag_items == 0 then
-        local section = parse_section_block(desc_lines)
-        if section then
-          insert(out.items, {
-            kind = "section",
-            name = section.name,
-            shortname = section.name,
-            desc = section.desc,
-            start = block_start_line or line_no,
-            finish = line_no - 1,
-          })
-          reset_block()
-        end
-      end
       local tag, payload = line:match("^%s*%-%-%-@([%w_]+)%s*(.*)$")
       insert(tag_items, { tag = tag, payload = payload, desc_extra = {} })
       note_block_start(line_no)
@@ -1048,21 +1003,6 @@ local function parse(source)
   local function handle_tag_block(line, line_no)
     if #desc_lines == 0 and #tag_items == 0 then
       return
-    end
-    if #desc_lines > 0 and #tag_items == 0 then
-      local section = parse_section_block(desc_lines)
-      if section then
-        insert(out.items, {
-          kind = "section",
-          name = section.name,
-          shortname = section.name,
-          desc = section.desc,
-          start = block_start_line or line_no,
-          finish = line_no - 1,
-        })
-        reset_block()
-        return
-      end
     end
     local tags = parse_tags(tag_items)
     if tags.ignore then
