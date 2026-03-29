@@ -129,7 +129,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
       - name: Run Markdownlint
-        uses: DavidAnson/markdownlint-cli2-action@v22
+        uses: DavidAnson/markdownlint-cli2-action@v23
         with:
           globs: |
             ${{ inputs.markdown_globs }}
