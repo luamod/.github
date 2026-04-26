@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v6
       - id: rp
         name: Run Release Please
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@v5
         with:
           config-file: ${{ inputs.config_file }}
           manifest-file: ${{ inputs.manifest_file }}
