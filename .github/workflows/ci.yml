@@ -100,7 +100,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
       - name: Setup Lua
-        uses: leafo/gh-actions-lua@v12
+        uses: leafo/gh-actions-lua@v13
       - name: Setup LuaRocks
         uses: leafo/gh-actions-luarocks@v6
       - name: Cache LuaRocks
@@ -198,7 +198,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
       - name: Setup Lua
-        uses: leafo/gh-actions-lua@v12
+        uses: leafo/gh-actions-lua@v13
         with:
           luaVersion: ${{ matrix.lua-version }}
       - name: Setup LuaRocks

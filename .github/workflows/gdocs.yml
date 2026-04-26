@@ -63,7 +63,7 @@ jobs:
           path: .workflow-tools
 
       - name: Setup Lua
-        uses: leafo/gh-actions-lua@v12
+        uses: leafo/gh-actions-lua@v13
         with:
           luaVersion: ${{ inputs.lua_version }}
 
