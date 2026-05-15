@@ -38,7 +38,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Lua
-        uses: leafo/gh-actions-lua@v12
+        uses: leafo/gh-actions-lua@v13
         with:
           luaVersion: ${{ inputs.lua_version }}
 
